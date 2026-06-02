@@ -15,6 +15,8 @@ type MercadoPagoWebhookBody = {
   user_id?: number | string
   api_version?: string
   action?: string
+  topic?: string
+  resource?: string
   data?: {
     id?: string
   }
@@ -138,6 +140,45 @@ async function verifyMercadoPagoSignature({
   return expectedSignature === v1
 }
 
+function getEventType(rawPayload: MercadoPagoWebhookBody, url: URL) {
+  return (
+    rawPayload.action ??
+    rawPayload.type ??
+    rawPayload.topic ??
+    url.searchParams.get('topic') ??
+    url.searchParams.get('type') ??
+    'unknown'
+  )
+}
+
+function isMerchantOrderEvent(eventType: string, rawPayload: MercadoPagoWebhookBody, url: URL) {
+  const normalizedEventType = eventType.toLowerCase()
+  const topic = url.searchParams.get('topic')?.toLowerCase()
+  const bodyTopic = rawPayload.topic?.toLowerCase()
+
+  return (
+    normalizedEventType.includes('merchant_order') ||
+    topic === 'merchant_order' ||
+    bodyTopic === 'merchant_order' ||
+    Boolean(rawPayload.resource?.includes('/merchant_orders/'))
+  )
+}
+
+function getMerchantOrderId(rawPayload: MercadoPagoWebhookBody, url: URL) {
+  const queryId = url.searchParams.get('id')
+
+  if (queryId) return queryId
+
+  if (rawPayload.id) return String(rawPayload.id)
+
+  if (rawPayload.resource) {
+    const match = rawPayload.resource.match(/merchant_orders\/(\d+)/)
+    if (match?.[1]) return match[1]
+  }
+
+  return null
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', {
@@ -194,6 +235,44 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url)
+  const eventType = getEventType(rawPayload, url)
+
+  /*
+    Checkout Pro puede enviar eventos merchant_order.
+    En esta fase los registramos, pero no los procesamos como pagos,
+    porque el id de merchant_order no es igual al payment_id.
+  */
+  if (isMerchantOrderEvent(eventType, rawPayload, url)) {
+    const merchantOrderId = getMerchantOrderId(rawPayload, url)
+
+    const { data: eventRow, error: insertError } = await supabaseAdmin
+      .from('payment_events')
+      .insert({
+        provider: 'mercadopago',
+        event_type: 'merchant_order',
+        provider_event_id: merchantOrderId,
+        raw_payload: rawPayload,
+        processed: false,
+        error_message:
+          'Evento merchant_order recibido. Registrado, pero no procesado como pago.',
+      })
+      .select('id')
+      .single()
+
+    if (insertError) {
+      console.error('Error guardando merchant_order:', insertError.message)
+    }
+
+    return jsonResponse(
+      {
+        received: true,
+        processed: false,
+        payment_event_id: eventRow?.id ?? null,
+        message: 'merchant_order registrado, no procesado como payment',
+      },
+      200,
+    )
+  }
 
   const paymentIdFromBody = rawPayload.data?.id
   const paymentIdFromQuery =
@@ -202,8 +281,6 @@ Deno.serve(async (req) => {
     url.searchParams.get('payment_id')
 
   const paymentId = paymentIdFromBody ?? paymentIdFromQuery
-  const eventType =
-    rawPayload.action ?? rawPayload.type ?? url.searchParams.get('topic')
 
   let paymentEventId: string | null = null
 
@@ -411,7 +488,7 @@ Deno.serve(async (req) => {
         .eq('id', paymentEventId)
     }
 
-    await supabaseAdmin.from('audit_logs').insert({
+    const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
       user_id: null,
       action: `payment_${newStatus}`,
       entity_type: 'orders',
@@ -426,6 +503,10 @@ Deno.serve(async (req) => {
         event_id: paymentEventId,
       },
     })
+
+    if (auditError) {
+      console.error('Error guardando audit_log:', auditError.message)
+    }
 
     return jsonResponse(
       {
