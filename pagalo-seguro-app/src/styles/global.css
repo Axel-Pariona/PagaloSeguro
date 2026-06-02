@@ -277,3 +277,10 @@ td a {
   background: #dbeafe;
   color: #1e40af;
 }
+
+.primary-link {
+  display: inline-block;
+  margin-top: 1rem;
+  color: #2563eb;
+  font-weight: 700;
+}
