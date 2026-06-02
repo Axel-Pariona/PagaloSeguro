@@ -317,3 +317,9 @@ td a {
   border-radius: 8px;
   font-size: 0.75rem;
 }
+
+.helper-text {
+  margin-top: 0.75rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
