@@ -12,7 +12,11 @@ export default function PaymentFailure() {
         registrada para revisión.
       </p>
 
-      {orderId && <Link to={`/orders/${orderId}`}>Ver detalle de orden</Link>}
+      {orderId && (
+        <Link className="primary-link" to={`/orders/${orderId}`}>
+          Ver detalle de orden
+        </Link>
+      )}
     </section>
   )
 }
