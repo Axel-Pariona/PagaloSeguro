@@ -224,6 +224,7 @@ Deno.serve(async (req) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const mercadoPagoAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN')
   const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET')
+  const skipSignatureValidation = Deno.env.get('SKIP_MP_SIGNATURE_VALIDATION') === 'true'
 
   if (!supabaseUrl || !serviceRoleKey || !mercadoPagoAccessToken) {
     return jsonResponse(
@@ -316,7 +317,7 @@ Deno.serve(async (req) => {
   let paymentEventId: string | null = null
 
   try {
-    const shouldValidateSignature = Boolean(webhookSecret)
+    const shouldValidateSignature = Boolean(webhookSecret) && !skipSignatureValidation
 
     if (shouldValidateSignature) {
       const signatureResult = await verifyMercadoPagoSignature({
