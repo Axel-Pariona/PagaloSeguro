@@ -12,67 +12,86 @@ export function AuthProvider({ children }) {
   const loadProfile = async (userId) => {
     if (!userId) {
       setProfile(null)
-      return
+      return null
     }
 
     const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name, role')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
 
     if (error) {
       console.error('Error obteniendo profile:', error.message)
       setProfile(null)
-      return
+      return null
     }
 
     setProfile(data)
+    return data
   }
 
   useEffect(() => {
-    async function loadSession() {
-      const { data, error } = await supabase.auth.getSession()
+    let isMounted = true
 
-      if (error) {
-        console.error('Error obteniendo sesión:', error.message)
-      }
+    async function initializeAuth() {
+      try {
+        setLoading(true)
 
-      const currentSession = data.session
-      const currentUser = currentSession?.user ?? null
+        const { data, error } = await supabase.auth.getSession()
 
-      setSession(currentSession)
-      setUser(currentUser)
+        if (error) {
+          console.error('Error obteniendo sesión:', error.message)
+        }
 
-      if (currentUser) {
-        await loadProfile(currentUser.id)
-      } else {
+        if (!isMounted) return
+
+        const currentSession = data.session
+        const currentUser = currentSession?.user ?? null
+
+        setSession(currentSession)
+        setUser(currentUser)
+
+        if (currentUser) {
+          await loadProfile(currentUser.id)
+        } else {
+          setProfile(null)
+        }
+      } catch (error) {
+        console.error('Error inicializando auth:', error)
+        setSession(null)
+        setUser(null)
         setProfile(null)
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
       }
-
-      setLoading(false)
     }
 
-    loadSession()
+    initializeAuth()
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       const currentUser = currentSession?.user ?? null
 
       setSession(currentSession)
       setUser(currentUser)
 
-      if (currentUser) {
-        await loadProfile(currentUser.id)
-      } else {
+      if (!currentUser) {
         setProfile(null)
+        setLoading(false)
+        return
       }
 
-      setLoading(false)
+      loadProfile(currentUser.id).finally(() => {
+        setLoading(false)
+      })
     })
 
     return () => {
+      isMounted = false
       subscription.unsubscribe()
     }
   }, [])

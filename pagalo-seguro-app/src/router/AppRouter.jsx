@@ -1,8 +1,8 @@
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 
 import ProtectedRoute from '../components/auth/ProtectedRoute'
-import AppLayout from '../components/layout/AppLayout'
 import AdminRoute from '../components/auth/AdminRoute'
+import AppLayout from '../components/layout/AppLayout'
 
 import Login from '../pages/Login'
 import Register from '../pages/Register'
@@ -14,6 +14,7 @@ import OrderDetail from '../pages/OrderDetail'
 import PaymentSuccess from '../pages/PaymentSuccess'
 import PaymentFailure from '../pages/PaymentFailure'
 import PaymentPending from '../pages/PaymentPending'
+
 import AdminOrders from '../pages/admin/AdminOrders'
 import AdminEvents from '../pages/admin/AdminEvents'
 import AdminLogs from '../pages/admin/AdminLogs'
@@ -67,25 +68,25 @@ const router = createBrowserRouter([
           },
         ],
       },
+    ],
+  },
+  {
+    element: <AdminRoute />,
+    children: [
       {
-        element: <AdminRoute />,
+        element: <AppLayout />,
         children: [
           {
-            element: <AppLayout />,
-            children: [
-              {
-                path: '/admin/orders',
-                element: <AdminOrders />,
-              },
-              {
-                path: '/admin/events',
-                element: <AdminEvents />,
-              },
-              {
-                path: '/admin/logs',
-                element: <AdminLogs />,
-              },
-            ],
+            path: '/admin/orders',
+            element: <AdminOrders />,
+          },
+          {
+            path: '/admin/events',
+            element: <AdminEvents />,
+          },
+          {
+            path: '/admin/logs',
+            element: <AdminLogs />,
           },
         ],
       },
