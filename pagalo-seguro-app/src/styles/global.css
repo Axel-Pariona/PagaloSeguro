@@ -284,3 +284,36 @@ td a {
   color: #2563eb;
   font-weight: 700;
 }
+
+.sidebar-section {
+  margin-top: 1rem;
+  padding: 0.8rem 1rem 0.3rem;
+  color: #9ca3af;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.secondary-button {
+  background: #e5e7eb;
+  color: #111827;
+  padding: 0.5rem 0.75rem;
+}
+
+.json-preview {
+  max-width: 360px;
+  max-height: 160px;
+  overflow: auto;
+  margin: 0;
+  padding: 0.75rem;
+  background: #111827;
+  color: #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.75rem;
+}
