@@ -99,7 +99,7 @@ export default function AdminOrders() {
                 <td>{new Date(order.created_at).toLocaleString()}</td>
                 <td>
                   <div className="inline-actions">
-                    <Link to={`/orders/${order.id}`}>Ver</Link>
+                    <Link to={`/admin/orders/${order.id}`}>Ver</Link>
 
                     <button
                       type="button"

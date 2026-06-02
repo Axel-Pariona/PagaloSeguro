@@ -107,3 +107,41 @@ export async function syncPaymentStatus(orderId) {
 
   return data
 }
+
+export async function getAdminOrderById(orderId) {
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      id,
+      user_id,
+      product_id,
+      amount,
+      currency,
+      status,
+      provider,
+      provider_preference_id,
+      provider_payment_id,
+      checkout_url,
+      created_at,
+      updated_at,
+      products (
+        id,
+        name,
+        description,
+        price,
+        currency
+      ),
+      profiles (
+        id,
+        full_name
+      )
+    `)
+    .eq('id', orderId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
+}

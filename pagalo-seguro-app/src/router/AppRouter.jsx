@@ -18,6 +18,7 @@ import PaymentPending from '../pages/PaymentPending'
 import AdminOrders from '../pages/admin/AdminOrders'
 import AdminEvents from '../pages/admin/AdminEvents'
 import AdminLogs from '../pages/admin/AdminLogs'
+import AdminOrderDetail from '../pages/admin/AdminOrderDetail'
 
 const router = createBrowserRouter([
   {
