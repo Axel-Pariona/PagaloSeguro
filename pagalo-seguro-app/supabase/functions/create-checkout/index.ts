@@ -39,6 +39,8 @@ Deno.serve(async (req) => {
     const mercadoPagoAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN')
     const appUrl = Deno.env.get('APP_URL')
 
+    const webhookUrl = Deno.env.get('MERCADOPAGO_WEBHOOK_URL')
+
     if (!supabaseUrl || !serviceRoleKey || !mercadoPagoAccessToken || !appUrl) {
       return new Response(
         JSON.stringify({
@@ -182,6 +184,7 @@ Deno.serve(async (req) => {
         pending: `${appUrl}/payment/pending?order_id=${order.id}`,
       },
       auto_return: 'approved',
+      notification_url: webhookUrl,
       metadata: {
         order_id: order.id,
         user_id: user.id,
