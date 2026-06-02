@@ -6,7 +6,29 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  const loadProfile = async (userId) => {
+    if (!userId) {
+      setProfile(null)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('id', userId)
+      .single()
+
+    if (error) {
+      console.error('Error obteniendo profile:', error.message)
+      setProfile(null)
+      return
+    }
+
+    setProfile(data)
+  }
 
   useEffect(() => {
     async function loadSession() {
@@ -16,8 +38,18 @@ export function AuthProvider({ children }) {
         console.error('Error obteniendo sesión:', error.message)
       }
 
-      setSession(data.session)
-      setUser(data.session?.user ?? null)
+      const currentSession = data.session
+      const currentUser = currentSession?.user ?? null
+
+      setSession(currentSession)
+      setUser(currentUser)
+
+      if (currentUser) {
+        await loadProfile(currentUser.id)
+      } else {
+        setProfile(null)
+      }
+
       setLoading(false)
     }
 
@@ -25,9 +57,18 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+    } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+      const currentUser = currentSession?.user ?? null
+
       setSession(currentSession)
-      setUser(currentSession?.user ?? null)
+      setUser(currentUser)
+
+      if (currentUser) {
+        await loadProfile(currentUser.id)
+      } else {
+        setProfile(null)
+      }
+
       setLoading(false)
     })
 
@@ -51,6 +92,7 @@ export function AuthProvider({ children }) {
   }
 
   const signOut = async () => {
+    setProfile(null)
     return await supabase.auth.signOut()
   }
 
@@ -59,11 +101,13 @@ export function AuthProvider({ children }) {
       value={{
         session,
         user,
+        profile,
         loading,
         signIn,
         signUp,
         signOut,
         isAuthenticated: Boolean(user),
+        isAdmin: profile?.role === 'admin',
       }}
     >
       {children}
