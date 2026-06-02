@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 
-import { useAuth } from '../context/AuthContext'
 import { getActiveProducts } from '../services/productsService'
-import { createPendingOrder } from '../services/ordersService'
+import { createCheckout } from '../services/checkoutService'
 
 export default function Products() {
-  const { user } = useAuth()
-  const navigate = useNavigate()
-
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [creatingOrderId, setCreatingOrderId] = useState(null)
+  const [creatingProductId, setCreatingProductId] = useState(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -32,21 +27,18 @@ export default function Products() {
     loadProducts()
   }, [])
 
-  const handleCreateOrder = async (product) => {
+  const handlePay = async (productId) => {
     try {
       setError('')
-      setCreatingOrderId(product.id)
+      setCreatingProductId(productId)
 
-      const order = await createPendingOrder({
-        userId: user.id,
-        product,
-      })
+      const checkout = await createCheckout(productId)
 
-      navigate(`/orders/${order.id}`)
+      window.location.href = checkout.checkout_url
     } catch (err) {
       setError(err.message)
     } finally {
-      setCreatingOrderId(null)
+      setCreatingProductId(null)
     }
   }
 
@@ -63,7 +55,8 @@ export default function Products() {
     <section>
       <h1>Productos demo</h1>
       <p>
-        Selecciona un producto demo para generar una orden de pago pendiente.
+        Selecciona un producto demo para generar una orden de pago y abrir el
+        checkout de Mercado Pago.
       </p>
 
       {error && <p className="error-message">{error}</p>}
@@ -84,12 +77,12 @@ export default function Products() {
 
               <div className="card-actions">
                 <button
-                  onClick={() => handleCreateOrder(product)}
-                  disabled={creatingOrderId === product.id}
+                  onClick={() => handlePay(product.id)}
+                  disabled={creatingProductId === product.id}
                 >
-                  {creatingOrderId === product.id
-                    ? 'Creando orden...'
-                    : 'Crear orden'}
+                  {creatingProductId === product.id
+                    ? 'Generando checkout...'
+                    : 'Pagar con Mercado Pago'}
                 </button>
               </div>
             </article>
