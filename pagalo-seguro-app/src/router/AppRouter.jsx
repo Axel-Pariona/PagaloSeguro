@@ -9,6 +9,10 @@ import Dashboard from '../pages/Dashboard'
 import Products from '../pages/Products'
 import Orders from '../pages/Orders'
 import NotFound from '../pages/NotFound'
+import OrderDetail from '../pages/OrderDetail'
+import PaymentSuccess from '../pages/PaymentSuccess'
+import PaymentFailure from '../pages/PaymentFailure'
+import PaymentPending from '../pages/PaymentPending'
 
 const router = createBrowserRouter([
   {
@@ -40,6 +44,22 @@ const router = createBrowserRouter([
           {
             path: '/orders',
             element: <Orders />,
+          },
+          {
+            path: '/orders/:id',
+            element: <OrderDetail />,
+          },
+          {
+            path: '/payment/success',
+            element: <PaymentSuccess />,
+          },
+          {
+            path: '/payment/failure',
+            element: <PaymentFailure />,
+          },
+          {
+            path: '/payment/pending',
+            element: <PaymentPending />,
           },
         ],
       },
