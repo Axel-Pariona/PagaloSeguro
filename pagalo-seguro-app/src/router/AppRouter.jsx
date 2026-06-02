@@ -82,6 +82,10 @@ const router = createBrowserRouter([
             element: <AdminOrders />,
           },
           {
+            path: '/admin/orders/:id',
+            element: <AdminOrderDetail />,
+          },
+          {
             path: '/admin/events',
             element: <AdminEvents />,
           },
