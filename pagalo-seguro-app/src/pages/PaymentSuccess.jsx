@@ -12,7 +12,7 @@ export default function PaymentSuccess() {
         será confirmado mediante webhook en la siguiente fase.
       </p>
 
-      {orderId && <Link to={`/orders/${orderId}`}>Ver detalle de orden</Link>}
+      {orderId && <Link className="primary-link" to={`/orders/${orderId}`}>Ver detalle de orden</Link>}
     </section>
   )
 }

@@ -122,7 +122,7 @@ async function verifyMercadoPagoSignature({
   secret,
 }: {
   request: Request
-  dataId: string
+  dataId: string | null
   secret: string
 }) {
   const xSignature = request.headers.get('x-signature')
@@ -131,13 +131,38 @@ async function verifyMercadoPagoSignature({
   const { ts, v1 } = parseSignatureHeader(xSignature)
 
   if (!xSignature || !xRequestId || !ts || !v1 || !dataId) {
-    return false
+    return {
+      valid: false,
+      reason: 'Faltan x-signature, x-request-id, ts, v1 o data.id',
+      debug: {
+        hasXSignature: Boolean(xSignature),
+        hasXRequestId: Boolean(xRequestId),
+        hasTs: Boolean(ts),
+        hasV1: Boolean(v1),
+        hasDataId: Boolean(dataId),
+      },
+    }
   }
 
-  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`
+  const normalizedDataId = dataId.toLowerCase()
+  const manifest = `id:${normalizedDataId};request-id:${xRequestId};ts:${ts};`
   const expectedSignature = await sha256HmacHex(secret, manifest)
 
-  return expectedSignature === v1
+  return {
+    valid: expectedSignature === v1,
+    reason:
+      expectedSignature === v1
+        ? 'Firma válida'
+        : 'La firma calculada no coincide con v1',
+    debug: {
+      dataId: normalizedDataId,
+      xRequestId,
+      ts,
+      expectedSignature,
+      receivedSignature: v1,
+      manifest,
+    },
+  }
 }
 
 function getEventType(rawPayload: MercadoPagoWebhookBody, url: URL) {
@@ -274,6 +299,12 @@ Deno.serve(async (req) => {
     )
   }
 
+  const signatureDataId =
+    url.searchParams.get('data.id') ??
+    url.searchParams.get('id') ??
+    rawPayload.data?.id ??
+    null
+
   const paymentIdFromBody = rawPayload.data?.id
   const paymentIdFromQuery =
     url.searchParams.get('data.id') ??
@@ -287,23 +318,26 @@ Deno.serve(async (req) => {
   try {
     const shouldValidateSignature = Boolean(webhookSecret)
 
-    if (shouldValidateSignature && paymentId) {
-      const isValidSignature = await verifyMercadoPagoSignature({
+    if (shouldValidateSignature) {
+      const signatureResult = await verifyMercadoPagoSignature({
         request: req,
-        dataId: paymentId,
+        dataId: signatureDataId,
         secret: webhookSecret!,
       })
 
-      if (!isValidSignature) {
+      if (!signatureResult.valid) {
         const { data: eventRow } = await supabaseAdmin
           .from('payment_events')
           .insert({
             provider: 'mercadopago',
             event_type: eventType ?? 'invalid_signature',
-            provider_event_id: String(paymentId),
-            raw_payload: rawPayload,
+            provider_event_id: paymentId ? String(paymentId) : null,
+            raw_payload: {
+              ...rawPayload,
+              signature_debug: signatureResult.debug,
+            },
             processed: false,
-            error_message: 'Firma de webhook inválida',
+            error_message: `Firma de webhook inválida: ${signatureResult.reason}`,
           })
           .select('id')
           .single()
