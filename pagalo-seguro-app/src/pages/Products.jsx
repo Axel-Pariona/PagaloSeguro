@@ -53,10 +53,9 @@ export default function Products() {
 
   return (
     <section>
-      <h1>Productos demo</h1>
+      <h1>Productos</h1>
       <p>
-        Selecciona un producto demo para generar una orden de pago y abrir el
-        checkout de Mercado Pago.
+        Selecciona un producto para generar una orden de pago.
       </p>
 
       {error && <p className="error-message">{error}</p>}

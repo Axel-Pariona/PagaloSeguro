@@ -4,6 +4,46 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getOrderById } from '../services/ordersService'
 
+function getPaymentMessage(status) {
+  const messages = {
+    pending: {
+      title: 'Pago pendiente',
+      description: 'Tu pago aún está pendiente. Puedes continuar con el checkout.',
+    },
+    approved: {
+      title: 'Pago aprobado',
+      description: 'Tu pago fue confirmado correctamente.',
+    },
+    rejected: {
+      title: 'Pago rechazado',
+      description: 'Mercado Pago rechazó el pago. Puedes intentar generar una nueva orden.',
+    },
+    cancelled: {
+      title: 'Pago cancelado',
+      description: 'El pago fue cancelado antes de completarse.',
+    },
+    expired: {
+      title: 'Pago expirado',
+      description: 'El intento de pago expiró. Puedes generar una nueva orden si deseas comprar nuevamente.',
+    },
+    refunded: {
+      title: 'Pago reembolsado',
+      description: 'Este pago fue reembolsado.',
+    },
+    error: {
+      title: 'Error en la orden',
+      description: 'Ocurrió un problema procesando esta orden. Si el pago fue realizado, contacta soporte.',
+    },
+  }
+
+  return (
+    messages[status] ?? {
+      title: 'Estado desconocido',
+      description: 'No se pudo interpretar el estado actual de esta orden.',
+    }
+  )
+}
+
 export default function OrderDetail() {
   const { id } = useParams()
   const { user } = useAuth()
@@ -13,6 +53,8 @@ export default function OrderDetail() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (!user?.id) return
+
     async function loadOrder() {
       try {
         setError('')
@@ -32,7 +74,7 @@ export default function OrderDetail() {
     }
 
     loadOrder()
-  }, [id, user.id])
+  }, [id, user?.id])
 
   if (loading) {
     return (
@@ -63,12 +105,15 @@ export default function OrderDetail() {
     )
   }
 
+  const paymentMessage = getPaymentMessage(order.status)
+  const canContinuePayment = order.status === 'pending' && order.checkout_url
+
   return (
     <section>
       <div className="page-header">
         <div>
           <h1>Detalle de orden</h1>
-          <p>Información completa de la orden seleccionada.</p>
+          <p>Consulta el estado de tu compra.</p>
         </div>
 
         <Link to="/orders">Volver</Link>
@@ -101,22 +146,8 @@ export default function OrderDetail() {
         </article>
 
         <article className="card">
-          <h3>ID de orden</h3>
+          <h3>Orden</h3>
           <p className="mono-text">{order.id}</p>
-        </article>
-
-        <article className="card">
-          <h3>Preferencia de pago</h3>
-          <p className="mono-text">
-            {order.provider_preference_id || 'Todavía no generada'}
-          </p>
-        </article>
-
-        <article className="card">
-          <h3>ID de pago</h3>
-          <p className="mono-text">
-            {order.provider_payment_id || 'Todavía no registrado'}
-          </p>
         </article>
 
         <article className="card">
@@ -126,23 +157,22 @@ export default function OrderDetail() {
         </article>
       </div>
 
-      {order.checkout_url ? (
-        <div className="payment-box">
-          <h3>Checkout disponible</h3>
-          <p>Esta orden ya tiene una URL de checkout generada.</p>
+      <div className="payment-box">
+        <h3>{paymentMessage.title}</h3>
+        <p>{paymentMessage.description}</p>
+
+        {canContinuePayment && (
           <a href={order.checkout_url} target="_blank" rel="noreferrer">
-            Ir al checkout
+            Continuar pago
           </a>
-        </div>
-      ) : (
-        <div className="payment-box">
-          <h3>Checkout pendiente</h3>
-          <p>
-            En la siguiente fase integraremos Mercado Pago para generar el
-            checkout externo.
+        )}
+
+        {order.status === 'approved' && (
+          <p className="helper-text">
+            El comprobante se implementará en una fase futura.
           </p>
-        </div>
-      )}
+        )}
+      </div>
     </section>
   )
 }

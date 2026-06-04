@@ -323,3 +323,12 @@ td a {
   color: #6b7280;
   font-size: 0.9rem;
 }
+
+.admin-detail-section {
+  margin-top: 2rem;
+}
+
+.admin-detail-section h2 {
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+}
