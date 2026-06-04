@@ -286,12 +286,8 @@ function getPaymentId(rawPayload: MercadoPagoWebhookBody, url: URL) {
   )
 }
 
-function getSignatureDataId(rawPayload: MercadoPagoWebhookBody, url: URL) {
-  return (
-    url.searchParams.get('data.id') ??
-    rawPayload.data?.id ??
-    null
-  )
+function getSignatureDataId(_rawPayload: MercadoPagoWebhookBody, url: URL) {
+  return url.searchParams.get('data.id')
 }
 
 Deno.serve(async (req) => {
