@@ -87,6 +87,9 @@ export default function AdminOrderDetail() {
     )
   }
 
+  const canSync = Boolean(order.provider_payment_id)
+  const canOpenCheckout = order.status === 'pending' && order.checkout_url
+
   return (
     <section>
       <div className="page-header">
@@ -98,98 +101,117 @@ export default function AdminOrderDetail() {
         <Link to="/admin/orders">← Volver a órdenes</Link>
       </div>
 
-      {error && <p className="error-message">{error}</p>}
       {message && <p className="success-message">{message}</p>}
 
-      <div className="detail-grid">
-        <article className="card">
-          <h3>Producto</h3>
-          <p>{order.products?.name ?? 'Sin producto'}</p>
-          <small>{order.products?.description ?? 'Sin descripción'}</small>
-        </article>
+      <section className="admin-detail-section">
+        <h2>Resumen de orden</h2>
 
-        <article className="card">
-          <h3>Monto</h3>
-          <p>
-            {order.currency} {Number(order.amount).toFixed(2)}
-          </p>
-        </article>
+        <div className="detail-grid">
+          <article className="card">
+            <h3>Producto</h3>
+            <p>{order.products?.name ?? 'Sin producto'}</p>
+            <small>{order.products?.description ?? 'Sin descripción'}</small>
+          </article>
 
-        <article className="card">
-          <h3>Estado</h3>
-          <span className={`status-badge status-${order.status}`}>
-            {order.status}
-          </span>
-        </article>
+          <article className="card">
+            <h3>Monto</h3>
+            <p>
+              {order.currency} {Number(order.amount).toFixed(2)}
+            </p>
+          </article>
 
-        <article className="card">
-          <h3>Proveedor</h3>
-          <p>{order.provider}</p>
-        </article>
+          <article className="card">
+            <h3>Estado</h3>
+            <span className={`status-badge status-${order.status}`}>
+              {order.status}
+            </span>
+          </article>
 
-        <article className="card">
-          <h3>ID de orden</h3>
-          <p className="mono-text">{order.id}</p>
-        </article>
+          <article className="card">
+            <h3>ID de orden</h3>
+            <p className="mono-text">{order.id}</p>
+          </article>
 
-        <article className="card">
-          <h3>Usuario</h3>
-          <p className="mono-text">{order.user_id}</p>
-          <small>{order.profiles?.full_name || 'Sin nombre registrado'}</small>
-        </article>
+          <article className="card">
+            <h3>Fechas</h3>
+            <p>Creada: {new Date(order.created_at).toLocaleString()}</p>
+            <p>Actualizada: {new Date(order.updated_at).toLocaleString()}</p>
+          </article>
+        </div>
+      </section>
 
-        <article className="card">
-          <h3>Preferencia de pago</h3>
-          <p className="mono-text">
-            {order.provider_preference_id || 'No generada'}
-          </p>
-        </article>
+      <section className="admin-detail-section">
+        <h2>Datos del cliente</h2>
 
-        <article className="card">
-          <h3>ID de pago</h3>
-          <p className="mono-text">
-            {order.provider_payment_id || 'No registrado'}
-          </p>
-        </article>
+        <div className="detail-grid">
+          <article className="card">
+            <h3>Usuario</h3>
+            <p>{order.profiles?.full_name || 'Sin nombre registrado'}</p>
+            <small className="mono-text">{order.user_id}</small>
+          </article>
+        </div>
+      </section>
 
-        <article className="card">
-          <h3>Fechas</h3>
-          <p>Creada: {new Date(order.created_at).toLocaleString()}</p>
-          <p>Actualizada: {new Date(order.updated_at).toLocaleString()}</p>
-        </article>
-      </div>
+      <section className="admin-detail-section">
+        <h2>Datos de pago</h2>
 
-      <div className="payment-box">
-        <h3>Acciones administrativas</h3>
+        <div className="detail-grid">
+          <article className="card">
+            <h3>Proveedor</h3>
+            <p>{order.provider}</p>
+          </article>
+
+          <article className="card">
+            <h3>Preferencia de pago</h3>
+            <p className="mono-text">
+              {order.provider_preference_id || 'No generada'}
+            </p>
+          </article>
+
+          <article className="card">
+            <h3>ID de pago</h3>
+            <p className="mono-text">
+              {order.provider_payment_id || 'No registrado'}
+            </p>
+          </article>
+
+          <article className="card">
+            <h3>Checkout</h3>
+            {canOpenCheckout ? (
+              <a href={order.checkout_url} target="_blank" rel="noreferrer">
+                Abrir checkout
+              </a>
+            ) : (
+              <p>No disponible para este estado.</p>
+            )}
+          </article>
+        </div>
+      </section>
+
+      <section className="payment-box">
+        <h2>Acciones administrativas</h2>
         <p>
-          Puedes intentar sincronizar manualmente esta orden con Mercado Pago si
-          el webhook no actualizó el estado correctamente.
+          Sincroniza manualmente la orden con Mercado Pago si necesitas verificar
+          nuevamente el estado del pago.
         </p>
 
         <div className="inline-actions">
           <button
             type="button"
             onClick={handleSync}
-            disabled={syncing || !order.provider_payment_id}
+            disabled={syncing || !canSync}
           >
             {syncing ? 'Sincronizando...' : 'Sincronizar pago'}
           </button>
-
-          {order.checkout_url && (
-            <a href={order.checkout_url} target="_blank" rel="noreferrer">
-              Abrir checkout
-            </a>
-          )}
         </div>
 
-        {!order.provider_payment_id && (
+        {!canSync && (
           <p className="helper-text">
-            Esta orden todavía no tiene provider_payment_id. La sincronización
-            manual directa requiere que el webhook haya registrado al menos un ID
-            de pago.
+            Esta orden todavía no tiene ID de pago registrado. La sincronización
+            manual directa requiere un provider_payment_id.
           </p>
         )}
-      </div>
+      </section>
     </section>
   )
 }
