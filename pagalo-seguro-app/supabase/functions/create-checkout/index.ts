@@ -11,6 +11,16 @@ type CreateCheckoutBody = {
   product_id?: string
 }
 
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+    },
+  })
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', {
@@ -19,64 +29,42 @@ Deno.serve(async (req) => {
   }
 
   if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({
-        error: 'Método no permitido',
-      }),
+    return jsonResponse(
       {
-        status: 405,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
+        error: 'Método no permitido',
       },
+      405,
     )
   }
 
   try {
     const supabaseUrl =
       Deno.env.get('SUPABASE_URL') ?? Deno.env.get('PROJECT_URL')
+
     const serviceRoleKey =
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ??
       Deno.env.get('PROJECT_SERVICE_ROLE_KEY')
+
     const mercadoPagoAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN')
     const appUrl = Deno.env.get('APP_URL')
 
-    const webhookUrl = Deno.env.get('MERCADOPAGO_WEBHOOK_URL')
-
-    const notificationUrl = webhookUrl
-      ? `${webhookUrl}${webhookUrl.includes('?') ? '&' : '?'}source_news=webhooks`
-      : undefined
-
     if (!supabaseUrl || !serviceRoleKey || !mercadoPagoAccessToken || !appUrl) {
-      return new Response(
-        JSON.stringify({
-          error: 'Faltan variables de entorno en la Edge Function',
-        }),
+      return jsonResponse(
         {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
+          error: 'Faltan variables de entorno en la Edge Function',
         },
+        500,
       )
     }
 
     const authHeader = req.headers.get('Authorization')
 
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({
-          error: 'No se envió token de autorización',
-        }),
+      return jsonResponse(
         {
-          status: 401,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
+          error: 'No se envió token de autorización',
         },
+        401,
       )
     }
 
@@ -90,17 +78,11 @@ Deno.serve(async (req) => {
     } = await supabaseAdmin.auth.getUser(token)
 
     if (userError || !user) {
-      return new Response(
-        JSON.stringify({
-          error: 'Usuario no autenticado',
-        }),
+      return jsonResponse(
         {
-          status: 401,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
+          error: 'Usuario no autenticado',
         },
+        401,
       )
     }
 
@@ -108,17 +90,11 @@ Deno.serve(async (req) => {
     const productId = body.product_id
 
     if (!productId) {
-      return new Response(
-        JSON.stringify({
-          error: 'product_id es requerido',
-        }),
+      return jsonResponse(
         {
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
+          error: 'product_id es requerido',
         },
+        400,
       )
     }
 
@@ -130,17 +106,11 @@ Deno.serve(async (req) => {
       .single()
 
     if (productError || !product) {
-      return new Response(
-        JSON.stringify({
-          error: 'Producto no encontrado o inactivo',
-        }),
+      return jsonResponse(
         {
-          status: 404,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
+          error: 'Producto no encontrado o inactivo',
         },
+        404,
       )
     }
 
@@ -158,18 +128,12 @@ Deno.serve(async (req) => {
       .single()
 
     if (orderError || !order) {
-      return new Response(
-        JSON.stringify({
+      return jsonResponse(
+        {
           error: 'No se pudo crear la orden',
           detail: orderError?.message,
-        }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
         },
+        500,
       )
     }
 
@@ -191,7 +155,6 @@ Deno.serve(async (req) => {
         pending: `${appUrl}/payment/pending?order_id=${order.id}`,
       },
       auto_return: 'approved',
-      ...(notificationUrl ? { notification_url: notificationUrl } : {}),
       metadata: {
         order_id: order.id,
         user_id: user.id,
@@ -221,18 +184,12 @@ Deno.serve(async (req) => {
         })
         .eq('id', order.id)
 
-      return new Response(
-        JSON.stringify({
+      return jsonResponse(
+        {
           error: 'No se pudo crear la preferencia de Mercado Pago',
           detail: mpData,
-        }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
         },
+        500,
       )
     }
 
@@ -249,18 +206,12 @@ Deno.serve(async (req) => {
       .eq('id', order.id)
 
     if (updateOrderError) {
-      return new Response(
-        JSON.stringify({
+      return jsonResponse(
+        {
           error: 'Preferencia creada, pero no se pudo actualizar la orden',
           detail: updateOrderError.message,
-        }),
-        {
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
         },
+        500,
       )
     }
 
@@ -275,33 +226,21 @@ Deno.serve(async (req) => {
       },
     })
 
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         order_id: order.id,
         preference_id: preferenceId,
         checkout_url: sandboxCheckoutUrl ?? checkoutUrl,
-      }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
       },
+      200,
     )
   } catch (error) {
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         error: 'Error inesperado en create-checkout',
         detail: error instanceof Error ? error.message : String(error),
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
       },
+      500,
     )
   }
 })
