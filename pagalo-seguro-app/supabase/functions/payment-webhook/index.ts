@@ -428,8 +428,11 @@ Deno.serve(async (req) => {
   */
   if (eventFormat === 'ipn') {
     const ipnPaymentId = getPaymentId(rawPayload, url)
+
     const canProcessIpnInSandbox =
-      skipSignatureValidation && isPaymentEvent(eventType, rawPayload, url) && ipnPaymentId
+      skipSignatureValidation &&
+      isPaymentEvent(eventType, rawPayload, url) &&
+      Boolean(ipnPaymentId)
 
     if (!canProcessIpnInSandbox) {
       const ipnEventId =
@@ -448,6 +451,10 @@ Deno.serve(async (req) => {
             ...rawPayload,
             event_format: eventFormat,
             signature_validation_skipped: skipSignatureValidation,
+            env_debug: {
+              skipSignatureValidation,
+              hasWebhookSecret: Boolean(webhookSecret),
+            },
           },
           processed: false,
           error_message:
@@ -478,7 +485,11 @@ Deno.serve(async (req) => {
 
   if (
     eventFormat !== 'webhook' &&
-    !(eventFormat === 'ipn' && skipSignatureValidation && isPaymentEvent(eventType, rawPayload, url))
+    !(
+      eventFormat === 'ipn' &&
+      skipSignatureValidation &&
+      isPaymentEvent(eventType, rawPayload, url)
+    )
   ) {
     const { data: eventRow, error: insertError } = await supabaseAdmin
       .from('payment_events')
