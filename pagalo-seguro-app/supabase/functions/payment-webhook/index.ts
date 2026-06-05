@@ -278,11 +278,42 @@ function getMerchantOrderId(rawPayload: MercadoPagoWebhookBody, url: URL) {
 }
 
 function getPaymentId(rawPayload: MercadoPagoWebhookBody, url: URL) {
+  const resource = rawPayload.resource
+
+  if (resource) {
+    const paymentUrlMatch = resource.match(/payments\/(\d+)/)
+    if (paymentUrlMatch?.[1]) return paymentUrlMatch[1]
+
+    if (/^\d+$/.test(resource)) return resource
+  }
+
   return (
     url.searchParams.get('data.id') ??
     rawPayload.data?.id ??
     url.searchParams.get('payment_id') ??
+    url.searchParams.get('id') ??
+    rawPayload.id?.toString() ??
     null
+  )
+}
+
+function isPaymentEvent(
+  eventType: string,
+  rawPayload: MercadoPagoWebhookBody,
+  url: URL,
+) {
+  const normalizedEventType = eventType.toLowerCase()
+  const topic = url.searchParams.get('topic')?.toLowerCase()
+  const type = url.searchParams.get('type')?.toLowerCase()
+  const bodyTopic = rawPayload.topic?.toLowerCase()
+  const bodyType = rawPayload.type?.toLowerCase()
+
+  return (
+    normalizedEventType.includes('payment') ||
+    topic === 'payment' ||
+    type === 'payment' ||
+    bodyTopic === 'payment' ||
+    bodyType === 'payment'
   )
 }
 
@@ -396,45 +427,59 @@ Deno.serve(async (req) => {
     Esto evita aprobar pagos desde un formato que no estamos validando como webhook firmado.
   */
   if (eventFormat === 'ipn') {
-    const ipnEventId =
-      url.searchParams.get('id') ??
-      rawPayload.id?.toString() ??
-      rawPayload.resource ??
-      null
+    const ipnPaymentId = getPaymentId(rawPayload, url)
+    const canProcessIpnInSandbox =
+      skipSignatureValidation && isPaymentEvent(eventType, rawPayload, url) && ipnPaymentId
 
-    const { data: eventRow, error: insertError } = await supabaseAdmin
-      .from('payment_events')
-      .insert({
-        provider: 'mercadopago',
-        event_type: eventType ?? 'ipn',
-        provider_event_id: ipnEventId,
-        raw_payload: {
-          ...rawPayload,
-          event_format: eventFormat,
+    if (!canProcessIpnInSandbox) {
+      const ipnEventId =
+        url.searchParams.get('id') ??
+        rawPayload.id?.toString() ??
+        rawPayload.resource ??
+        null
+
+      const { data: eventRow, error: insertError } = await supabaseAdmin
+        .from('payment_events')
+        .insert({
+          provider: 'mercadopago',
+          event_type: eventType ?? 'ipn',
+          provider_event_id: ipnEventId,
+          raw_payload: {
+            ...rawPayload,
+            event_format: eventFormat,
+            signature_validation_skipped: skipSignatureValidation,
+          },
+          processed: false,
+          error_message:
+            'Evento IPN/topic-resource recibido. Registrado, pero no procesado como webhook firmado.',
+        })
+        .select('id')
+        .single()
+
+      if (insertError) {
+        console.error('Error guardando IPN:', insertError.message)
+      }
+
+      return jsonResponse(
+        {
+          received: true,
+          processed: false,
+          payment_event_id: eventRow?.id ?? null,
+          message: 'IPN registrado, no procesado como pago firmado',
         },
-        processed: false,
-        error_message:
-          'Evento IPN/topic-resource recibido. Registrado, pero no procesado como webhook firmado.',
-      })
-      .select('id')
-      .single()
-
-    if (insertError) {
-      console.error('Error guardando IPN:', insertError.message)
+        200,
+      )
     }
 
-    return jsonResponse(
-      {
-        received: true,
-        processed: false,
-        payment_event_id: eventRow?.id ?? null,
-        message: 'IPN registrado, no procesado como pago firmado',
-      },
-      200,
+    console.log(
+      'Procesando IPN de payment en sandbox porque SKIP_MP_SIGNATURE_VALIDATION=true',
     )
   }
 
-  if (eventFormat !== 'webhook') {
+  if (
+    eventFormat !== 'webhook' &&
+    !(eventFormat === 'ipn' && skipSignatureValidation && isPaymentEvent(eventType, rawPayload, url))
+  ) {
     const { data: eventRow, error: insertError } = await supabaseAdmin
       .from('payment_events')
       .insert({
