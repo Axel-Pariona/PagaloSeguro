@@ -170,40 +170,69 @@ async function verifyMercadoPagoSignature({
     }
   }
 
-  const manifest = buildMercadoPagoManifest({
-    dataId,
-    xRequestId,
-    ts,
-  })
-
-  if (!manifest) {
+  if (!dataId || !ts) {
     return {
       valid: false,
-      reason: 'No se pudo construir manifest para validar firma',
+      reason: 'Falta data.id o ts para validar firma',
       debug: {
+        hasXSignature: Boolean(xSignature),
         hasXRequestId: Boolean(xRequestId),
         hasDataId: Boolean(dataId),
         hasTs: Boolean(ts),
-        manifest,
+        hasV1: Boolean(v1),
       },
     }
   }
 
-  const expectedSignature = await sha256HmacHex(secret, manifest)
+  const normalizedDataId = dataId.toLowerCase()
+
+  const manifestWithRequestId = xRequestId
+    ? `id:${normalizedDataId};request-id:${xRequestId};ts:${ts};`
+    : null
+
+  const manifestWithoutRequestId = `id:${normalizedDataId};ts:${ts};`
+
+  const expectedWithRequestId = manifestWithRequestId
+    ? await sha256HmacHex(secret, manifestWithRequestId)
+    : null
+
+  const expectedWithoutRequestId = await sha256HmacHex(
+    secret,
+    manifestWithoutRequestId,
+  )
+
+  const matchesWithRequestId = expectedWithRequestId === v1
+  const matchesWithoutRequestId = expectedWithoutRequestId === v1
+
+  if (matchesWithRequestId || matchesWithoutRequestId) {
+    return {
+      valid: true,
+      reason: matchesWithRequestId
+        ? 'Firma válida usando manifest con request-id'
+        : 'Firma válida usando manifest sin request-id',
+      debug: {
+        hasXRequestId: Boolean(xRequestId),
+        hasDataId: Boolean(dataId),
+        hasTs: Boolean(ts),
+        matchedManifest: matchesWithRequestId
+          ? 'with_request_id'
+          : 'without_request_id',
+      },
+    }
+  }
 
   return {
-    valid: expectedSignature === v1,
-    reason:
-      expectedSignature === v1
-        ? 'Firma válida'
-        : 'La firma calculada no coincide con v1',
+    valid: false,
+    reason: 'La firma calculada no coincide con v1',
     debug: {
       hasXRequestId: Boolean(xRequestId),
       hasDataId: Boolean(dataId),
       hasTs: Boolean(ts),
       receivedSignatureStart: v1.slice(0, 8),
-      expectedSignatureStart: expectedSignature.slice(0, 8),
-      manifest,
+      expectedWithRequestIdStart: expectedWithRequestId?.slice(0, 8) ?? null,
+      expectedWithoutRequestIdStart: expectedWithoutRequestId.slice(0, 8),
+      manifestWithRequestId,
+      manifestWithoutRequestId,
     },
   }
 }
