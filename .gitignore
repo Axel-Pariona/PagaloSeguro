@@ -1,4 +1,11 @@
+# =========================================================
+# Ignores only /supabase at repo root
+# =========================================================
+/supabase/
+
+# =========================================================
 # Env files
+# =========================================================
 .env
 .env.local
 .env.development
@@ -6,20 +13,37 @@
 .env.development.local
 .env.production.local
 *.env
-supabase/functions/.env
 
-# Supabase local/temp
-supabase/.temp/
-supabase/.branches/
+# Allow example env files
+!.env.example
+!*.env.example
 
+# =========================================================
+# Project Supabase local/sensitive files
+# Keep pagalo-seguro-app/supabase/functions,
+# but ignore local temp files and function env files
+# =========================================================
+/pagalo-seguro-app/supabase/.temp/
+/pagalo-seguro-app/supabase/.branches/
+/pagalo-seguro-app/supabase/functions/.env
+
+# =========================================================
 # Build
+# =========================================================
 dist/
 build/
+/pagalo-seguro-app/dist/
+/pagalo-seguro-app/build/
 
+# =========================================================
 # Dependencies
+# =========================================================
 node_modules/
+/pagalo-seguro-app/node_modules/
 
+# =========================================================
 # Logs
+# =========================================================
 logs/
 *.log
 npm-debug.log*
@@ -27,13 +51,16 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# =========================================================
 # OS
+# =========================================================
 .DS_Store
 Thumbs.db
 
+# =========================================================
 # Editor
-.vscode/*
-!.vscode/extensions.json
+# =========================================================
+.vscode/
 .idea/
 *.suo
 *.ntvs*
