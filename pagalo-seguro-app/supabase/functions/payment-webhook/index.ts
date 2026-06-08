@@ -116,32 +116,6 @@ function parseSignatureHeader(xSignature: string | null) {
   }
 }
 
-function buildMercadoPagoManifest({
-  dataId,
-  xRequestId,
-  ts,
-}: {
-  dataId: string | null
-  xRequestId: string | null
-  ts: string | null
-}) {
-  let manifest = ''
-
-  if (dataId) {
-    manifest += `id:${dataId.toLowerCase()};`
-  }
-
-  if (xRequestId) {
-    manifest += `request-id:${xRequestId};`
-  }
-
-  if (ts) {
-    manifest += `ts:${ts};`
-  }
-
-  return manifest
-}
-
 async function verifyMercadoPagoSignature({
   request,
   dataId,
@@ -370,8 +344,7 @@ Deno.serve(async (req) => {
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const mercadoPagoAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN')
   const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET')
-  const skipSignatureValidation =
-    Deno.env.get('SKIP_MP_SIGNATURE_VALIDATION') === 'true'
+  const skipSignatureValidation = Deno.env.get('SKIP_MP_SIGNATURE_VALIDATION') === 'true'
 
   if (!supabaseUrl || !serviceRoleKey || !mercadoPagoAccessToken) {
     return jsonResponse(
@@ -480,10 +453,6 @@ Deno.serve(async (req) => {
             ...rawPayload,
             event_format: eventFormat,
             signature_validation_skipped: skipSignatureValidation,
-            env_debug: {
-              skipSignatureValidation,
-              hasWebhookSecret: Boolean(webhookSecret),
-            },
           },
           processed: false,
           error_message:
@@ -506,10 +475,6 @@ Deno.serve(async (req) => {
         200,
       )
     }
-
-    console.log(
-      'Procesando IPN de payment en sandbox porque SKIP_MP_SIGNATURE_VALIDATION=true',
-    )
   }
 
   if (
@@ -578,7 +543,9 @@ Deno.serve(async (req) => {
             raw_payload: {
               ...rawPayload,
               event_format: eventFormat,
-              signature_debug: signatureResult.debug,
+              signature_error: {
+                reason: signatureResult.reason,
+              }
             },
             processed: false,
             error_message: `Firma de webhook inválida: ${signatureResult.reason}`,
