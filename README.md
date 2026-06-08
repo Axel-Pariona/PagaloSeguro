@@ -1,8 +1,14 @@
 # PagaloSeguro
 
-PagaloSeguro es un laboratorio de integración de pagos desarrollado para practicar el flujo completo de una pasarela de pago usando una arquitectura web moderna. El proyecto permite crear órdenes de pago, redirigir al usuario a Mercado Pago Checkout Pro en modo sandbox, recibir eventos mediante webhooks, actualizar el estado de las órdenes y monitorear la operación desde un panel administrativo.
+PagaloSeguro es un laboratorio de integración de pagos desarrollado para practicar y validar el flujo completo de una pasarela de pago en una arquitectura web moderna. El proyecto permite crear órdenes de pago, redirigir al usuario a Mercado Pago Checkout Pro en modo sandbox, recibir eventos mediante webhooks, actualizar el estado de las órdenes y monitorear la operación desde un panel administrativo.
 
-El objetivo principal del proyecto no es construir un ecommerce completo, sino aprender y validar los procesos técnicos asociados a una integración de pagos segura, incluyendo separación entre frontend y backend, manejo de variables sensibles, Edge Functions, roles, RLS, auditoría y despliegue en producción.
+El objetivo principal del proyecto no es construir un ecommerce completo, sino implementar un prototipo técnico enfocado en integración de pagos, separación entre frontend y backend, protección de credenciales, manejo de webhooks, control de roles, Row Level Security, auditoría y despliegue en producción.
+
+## Demo
+
+Aplicación desplegada en Vercel:
+
+https://pagalo-seguro.vercel.app
 
 ## Tecnologías utilizadas
 
@@ -15,6 +21,44 @@ El objetivo principal del proyecto no es construir un ecommerce completo, sino a
 * Mercado Pago Checkout Pro Sandbox
 * Vercel
 * GitHub
+
+## Objetivo del proyecto
+
+El proyecto fue desarrollado con fines de aprendizaje y práctica técnica, buscando simular un flujo real de pagos sin exponer información sensible en el frontend.
+
+Los objetivos principales fueron:
+
+* Implementar autenticación de usuarios.
+* Crear órdenes de pago asociadas a usuarios autenticados.
+* Generar preferencias de pago desde backend mediante Supabase Edge Functions.
+* Redirigir al usuario a Mercado Pago Checkout Pro.
+* Recibir eventos de pago mediante webhooks.
+* Consultar el estado real del pago antes de actualizar una orden.
+* Proteger datos sensibles mediante RLS y funciones backend.
+* Registrar eventos y acciones relevantes para auditoría.
+* Desplegar frontend y backend serverless en producción.
+
+## Arquitectura general
+
+PagaloSeguro utiliza una arquitectura basada en frontend React, Supabase como backend serverless y Mercado Pago como proveedor de pagos en ambiente sandbox.
+
+```txt
+Usuario autenticado
+  ↓
+Frontend React + Vite
+  ↓
+Supabase Auth
+  ↓
+Supabase Edge Functions
+  ↓
+Mercado Pago Checkout Pro Sandbox
+  ↓
+Webhook de Mercado Pago
+  ↓
+Supabase PostgreSQL + RLS + Audit Logs
+```
+
+El frontend no crea pagos directamente ni maneja tokens privados. Las operaciones sensibles se ejecutan desde Supabase Edge Functions.
 
 ## Funcionalidades principales
 
@@ -31,14 +75,14 @@ El objetivo principal del proyecto no es construir un ecommerce completo, sino a
 * Listado de productos o servicios de prueba.
 * Visualización de productos activos.
 * Uso de productos demo para generar órdenes de pago.
-* El monto de pago se obtiene desde la base de datos, no desde el frontend.
+* Obtención del monto desde la base de datos, no desde el frontend.
 
 ### Órdenes de pago
 
 * Creación de órdenes con estado inicial `pending`.
 * Asociación de cada orden a un usuario autenticado.
 * Asociación de cada orden a un producto.
-* Registro del monto, moneda, proveedor y estado.
+* Registro de monto, moneda, proveedor y estado.
 * Almacenamiento del `provider_preference_id` generado por Mercado Pago.
 * Almacenamiento del `provider_payment_id` cuando el pago es confirmado.
 * Visualización de órdenes propias por usuario.
@@ -67,7 +111,7 @@ El objetivo principal del proyecto no es construir un ecommerce completo, sino a
 * Manejo de eventos duplicados o repetidos.
 * Manejo de errores sin perder el payload recibido.
 * Actualización automática de órdenes cuando el pago es confirmado.
-* Soporte para modo sandbox mediante `SKIP_MP_SIGNATURE_VALIDATION`.
+* Soporte para ambiente sandbox mediante `SKIP_MP_SIGNATURE_VALIDATION`.
 
 ### Panel de administración
 
@@ -93,7 +137,7 @@ El sistema registra acciones importantes en la tabla `audit_logs`, como:
 
 ## Roles
 
-El sistema maneja dos roles principales:
+El sistema maneja dos roles principales.
 
 ### `user`
 
@@ -333,9 +377,9 @@ Responsabilidades:
 
 ## Seguridad
 
-El proyecto aplica una separación clara entre frontend, backend y base de datos.
+PagaloSeguro aplica una separación clara entre frontend, backend y base de datos.
 
-### Reglas generales
+### Principios aplicados
 
 * El frontend no define el monto final del pago.
 * El frontend no puede marcar una orden como aprobada.
@@ -348,7 +392,7 @@ El proyecto aplica una separación clara entre frontend, backend y base de datos
 
 ### Row Level Security
 
-El proyecto utiliza RLS en Supabase.
+El proyecto utiliza RLS en Supabase para controlar el acceso a la información.
 
 Reglas generales:
 
@@ -361,6 +405,8 @@ Reglas generales:
 * Los administradores pueden ver eventos de pago.
 * Los administradores pueden ver logs de auditoría.
 * Las actualizaciones sensibles se realizan desde Edge Functions con `service_role`.
+
+Esta separación evita que el usuario pueda modificar estados de pago desde el frontend o manipular montos enviados desde el navegador.
 
 ## Variables de entorno
 
@@ -402,7 +448,7 @@ SKIP_MP_SIGNATURE_VALIDATION=false
 
 ## Nota sobre la firma del webhook
 
-La validación estricta de firma de Mercado Pago fue implementada y probada, pero en el ambiente sandbox utilizado durante el desarrollo la firma calculada no coincidía con `v1`, aun recibiendo `data.id`, `ts` y `x-request-id`.
+La validación estricta de firma de Mercado Pago fue implementada y probada. Sin embargo, durante las pruebas en ambiente sandbox, la firma calculada no coincidía con `v1`, aun recibiendo `data.id`, `ts` y `x-request-id`.
 
 Por este motivo, para el entorno de práctica se mantiene:
 
@@ -410,15 +456,15 @@ Por este motivo, para el entorno de práctica se mantiene:
 SKIP_MP_SIGNATURE_VALIDATION=true
 ```
 
-Aun con esta configuración, el sistema no actualiza órdenes confiando únicamente en el payload del webhook. Antes de modificar una orden, la Edge Function consulta directamente el pago real en Mercado Pago usando el `payment_id`.
+Aun con esta configuración, el sistema no actualiza órdenes confiando únicamente en el payload recibido. Antes de modificar una orden, la Edge Function consulta directamente el pago real en Mercado Pago usando el `payment_id`.
 
-Antes de usar este proyecto con pagos reales, se debe resolver la validación estricta de firma y configurar:
+Antes de adaptar este proyecto a pagos reales, se debe resolver la validación estricta de firma y configurar:
 
 ```env
 SKIP_MP_SIGNATURE_VALIDATION=false
 ```
 
-## Instalación
+## Instalación y ejecución local
 
 Clonar el repositorio:
 
@@ -455,29 +501,29 @@ npm run dev
 
 ## Scripts disponibles
 
+Ejecutar entorno de desarrollo:
+
 ```bash
 npm run dev
 ```
 
-Ejecuta el proyecto en modo desarrollo.
+Generar build de producción:
 
 ```bash
 npm run build
 ```
 
-Genera la versión de producción.
+Previsualizar build de producción:
 
 ```bash
 npm run preview
 ```
 
-Permite previsualizar la versión generada.
+Ejecutar revisión de código con ESLint:
 
 ```bash
 npm run lint
 ```
-
-Ejecuta la revisión de código con ESLint.
 
 ## Configuración en Supabase
 
@@ -559,7 +605,7 @@ Incluye:
 * Eventos de pago.
 * Logs de auditoría.
 * Sincronización manual.
-* RLS fuerte.
+* Row Level Security.
 * Separación de variables públicas y privadas.
 * Despliegue en Vercel y Supabase.
 
@@ -574,8 +620,6 @@ Incluye:
 * No implementa Stripe como proveedor alternativo.
 
 ## Próximas mejoras
-
-Posibles mejoras futuras:
 
 * Resolver validación estricta de firma de Mercado Pago.
 * Implementar comprobante o boleta de pago.
